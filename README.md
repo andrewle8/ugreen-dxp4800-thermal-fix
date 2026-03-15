@@ -10,11 +10,7 @@ The UGREEN DXP4800+ (Intel Pentium Gold 8505) hits 100°C and thermal throttles 
 
 The root cause is in the ACPI thermal tables. All five fan cooling devices are bound to the board temperature sensor (`acpitz` / `thermal_zone0`), not the CPU sensor (`coretemp`). The board reads ~28°C regardless of CPU load, so the firmware never tells the fans to spin up. The CPU's only thermal protection is throttling its own clock speed.
 
-Existing tools can't help:
-
-- **Unraid Autofan plugin** — needs hwmon PWM endpoints. The DXP4800+ has none.
-- **Community fan control** ([0n1cOn3/UGREEN-Fan-Control](https://github.com/0n1cOn3/UGREEN-Fan-Control), [ianplusplus/ugreenfancontrol](https://github.com/ianplusplus/ugreenfancontrol)) — both depend on the IT8613E Super IO chip, which exists on the DXP2800 but not the DXP4800+.
-- **ACPI fan control via sysfs** — the cooling devices are binary on/off (`max_state=1`). No variable speed.
+Fan speed turns out to be irrelevant — [even at max RPM, the cooler can't keep up with turbo heat](#why-not-just-fix-the-fans).
 
 ## Diagnosis
 
@@ -49,7 +45,9 @@ Five Fan cooling devices bound to `thermal_zone0` (acpitz):
 
 Trip points on `thermal_zone0`: 40, 45, 50, 55, 100, 105°C. The board never reaches these, so every cooling device stays at `cur_state=0`.
 
-### No hwmon fan/PWM endpoints
+### No hwmon fan/PWM endpoints (stock kernel)
+
+The stock Unraid `it87` module doesn't detect the IT8613E chip:
 
 ```bash
 find /sys/class/hwmon -name "pwm*" -o -name "fan*_input"
@@ -59,7 +57,7 @@ modprobe it87 force_id=0x8613
 # modprobe: ERROR: could not insert 'it87': No such device
 ```
 
-No hardware path to control fan speed. The Autofan plugin has nothing to work with.
+**Update:** The IT8613E _does_ exist on the DXP4800+ at ISA port `0x0a30` (non-standard, which is why auto-detection fails). Installing the [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin (which uses the [frankcrawford/it87](https://github.com/frankcrawford/it87) fork) exposes full PWM fan control and RPM monitoring. See [Fan Speed Doesn't Matter](#why-not-just-fix-the-fans) for why this doesn't change the fix.
 
 ### Thermal throttling
 
@@ -150,7 +148,8 @@ All tests on 2026-03-11. Sustained load from `find` processes pegging cores at 1
 
 | Configuration | CPU Temp | Behavior |
 |---------------|----------|----------|
-| Turbo ON, firmware default (fans low) | 99-100°C sustained | Thermal throttling. P-core drops from 4.1 to ~2.2 GHz. |
+| Turbo ON, firmware default (fans ~1000 RPM) | 99-100°C sustained | Thermal throttling. P-core drops from 4.1 to ~2.2 GHz. |
+| Turbo ON, IT8613E PWM max (fan2: 3426, fan3: 1781 RPM) | 100°C in 5 seconds | Max fans make no difference. Cooler bottleneck. |
 | Turbo ON, ACPI fans forced ON | 50-100°C oscillating (5-10s cycle) | Fans cool CPU, turbo ramps up, temp spikes again. |
 | Turbo ON, fans ON + external AC Infinity S7-P 140mm | 50-100°C oscillating | External fans made zero measurable difference. |
 | **Turbo OFF, any fan config** | **45-49°C steady** | No throttling. Base clock 1.2 GHz. |
@@ -161,15 +160,61 @@ External fans (AC Infinity Multifan S7-P blowing directly on the enclosure) chan
 
 ## Why Not Just Fix the Fans?
 
-The DXP4800+ doesn't expose the fan control interface that Linux tools expect.
+We tested this. **The cooler physically cannot dissipate turbo boost heat, regardless of fan speed.**
 
-**ACPI fans are binary.** `max_state=1` — on or off. Even forced to full blast, they can't keep up with turbo boost heat output. The test data shows this: fans on + turbo on = oscillating 50-100°C.
+### IT8613E PWM control exists (after driver install)
 
-**No hwmon PWM endpoints.** No IT8613E chip on the DXP4800+ (the DXP2800 has one, which is why some community tools work on that model). Without hwmon PWM, the Autofan plugin, `fancontrol`, and both community UGREEN projects are non-starters.
+The DXP4800+ _does_ have an IT8613E Super IO chip at ISA `0x0a30`. The stock Unraid `it87` module can't detect it, but installing the [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin exposes full PWM control:
 
-**The EC probably has real fan control.** The DSDT references EC fields (`CFAN`) and methods (`ECWT`) that suggest variable speed capability — this is presumably what UGOS uses internally. Accessing it from Linux would require building `ec_sys` or `acpi_call` kernel modules for the Unraid kernel and reverse-engineering the register map. Possible, but a significant project with risk of hardware damage if you write the wrong register.
+```
+it8613-isa-0a30
+fan2:         988 RPM
+fan3:        1002 RPM
+pwm2: 51  (enable=2, auto)
+pwm3: 51  (enable=2, auto)
+```
 
-Disabling turbo is simpler, safer, and more effective.
+Variable speed works — setting `pwm3=200` ramps fan3 from 1019 to 1470 RPM. The BIOS runs both fans at ~PWM 51 (~1000 RPM) in auto mode.
+
+### Max fans + turbo = still 100°C
+
+We ran both fans at maximum (fan2: 3426 RPM, fan3: 1781 RPM), re-enabled turbo, and stress-tested. **CPU hit 100°C in 5 seconds.** Identical to having the fans at idle.
+
+| Test | fan2 RPM | fan3 RPM | CPU Temp | Result |
+|------|----------|----------|----------|--------|
+| Default auto (PWM 51) + turbo | 988 | 1002 | 100°C in 5s | Throttle |
+| Max fans (PWM 255) + turbo | 3426 | 1781 | 100°C in 5s | Throttle |
+| Any fan speed + **turbo off** | any | any | **45-49°C** | Stable |
+
+The bottleneck is the CPU heatsink/package, not airflow. The DXP4800+ enclosure was designed for the 8505 at base clock, not at sustained turbo.
+
+### ACPI fans don't control the physical fans
+
+The five ACPI Fan cooling devices (`cooling_device6-10`, `max_state=1`) are binary on/off, but they don't actually drive the physical fans. The IT8613E chip controls the fans independently via its own auto curve. Toggling ACPI `cur_state` has no measurable effect on fan RPM.
+
+### Optional: Install the IT8613E driver anyway
+
+While it won't fix the thermal throttling, the it87 driver is useful for:
+
+- **Fan RPM monitoring** — `sensors` shows actual fan speeds
+- **Noise optimization** — adjust PWM curves via FanCtrlPlus to run quieter at idle
+- **Diagnostics** — verify fans are spinning and healthy
+
+Install the [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin from Community Apps, or manually:
+
+```bash
+# Download the pre-built driver for your kernel
+wget -O /boot/config/plugins/it87-driver/it87.txz \
+  "https://github.com/ich777/unraid-it87-driver/releases/download/$(uname -r)/it87-20260114-$(uname -r)-1.txz"
+
+# Install and load
+installpkg /boot/config/plugins/it87-driver/it87.txz
+depmod -a
+modprobe it87 ignore_resource_conflict=1
+
+# Verify
+sensors | grep -A5 it8613
+```
 
 ## Compatibility
 
@@ -212,11 +257,11 @@ It's a firmware design choice. UGOS has its own fan daemon that reads CPU temp d
 
 **Will a BIOS update fix this?**
 
-Possibly, if UGREEN adds CPU temp to the ACPI thermal zone bindings. As of March 2026, no such update exists.
+A BIOS update could fix the ACPI thermal zone binding (board temp → CPU temp), but the underlying issue is the cooler design. Even at max fan speed, the heatsink can't dissipate turbo heat. A BIOS fix would let the fans ramp harder under load, but turbo would still thermal throttle under sustained workloads.
 
 **Can I get variable fan speed?**
 
-Not without reverse-engineering the EC registers. The DSDT has the hooks (`ECWT`, `CFAN`) but no one has mapped them yet. If you have EC documentation for these boards, please open an issue.
+Yes. Install the [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin — it loads the frankcrawford `it87` fork which detects the IT8613E chip at ISA `0x0a30`. This exposes full PWM control and RPM monitoring via `/sys/class/hwmon/`. Useful for noise optimization, but doesn't change the need to disable turbo.
 
 **Does this affect drive temperatures?**
 
