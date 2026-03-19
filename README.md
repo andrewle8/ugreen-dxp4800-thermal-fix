@@ -144,11 +144,13 @@ The 25°C hysteresis gap is intentional. Binary fans cool aggressively — witho
 
 ## Test Results
 
-All tests on 2026-03-11. Sustained load from `find` processes pegging cores at 100% plus RoonServer indexing a music library at ~30% CPU.
+All tests on 2026-03-11 (stock paste) and 2026-03-19 (repaste). Sustained load from `find` processes pegging cores at 100% plus RoonServer indexing a music library at ~30% CPU.
+
+### Stock Thermal Paste
 
 | Configuration | CPU Temp | Behavior |
 |---------------|----------|----------|
-| Turbo ON, firmware default (fans ~1000 RPM) | 99-100°C sustained | Thermal throttling. P-core drops from 4.1 to ~2.2 GHz. |
+| Turbo ON, firmware default (fans ~1000 RPM) | 99-100°C sustained | Thermal throttling. P-core drops from 4.1 to ~2.2 GHz. E-cores 100°C/900 MHz. |
 | Turbo ON, IT8613E PWM max (fan2: 3426, fan3: 1781 RPM) | 100°C in 5 seconds | Max fans make no difference. Cooler bottleneck. |
 | Turbo ON, ACPI fans forced ON | 50-100°C oscillating (5-10s cycle) | Fans cool CPU, turbo ramps up, temp spikes again. |
 | Turbo ON, fans ON + external AC Infinity S7-P 140mm | 50-100°C oscillating | External fans made zero measurable difference. |
@@ -158,9 +160,23 @@ The 50-100°C oscillation with turbo on is a thermal throttle cycle: boost to 4.
 
 External fans (AC Infinity Multifan S7-P blowing directly on the enclosure) changed nothing. The bottleneck is the CPU package and heatsink, not ambient airflow. Board temp stayed at 28°C and NVMe at 46°C regardless of configuration.
 
+### After Repaste (Arctic MX-6)
+
+Factory thermal paste was poorly applied — only ~40% die coverage with two small contact patches visible on the heatsink. Repasted with Arctic MX-6 and proper full-die coverage.
+
+| Configuration | CPU Temp | Behavior |
+|---------------|----------|----------|
+| Turbo ON, any fan speed | P-core 100°C, E-cores 83°C | P-core holds 3.9 GHz (was throttling to 2.2 GHz). E-cores 2.6-2.9 GHz (were 900 MHz). |
+| **Turbo OFF** | **43°C idle** | Down from 45-49°C with stock paste. |
+| Recovery after load | 71°C quickly | Drops fast once load stops. |
+
+Repaste significantly improved thermal transfer. The P-core still hits 100°C under sustained turbo, but it no longer hard-throttles — it holds near-max frequency instead of dropping to half speed. E-cores went from thermally saturated (100°C/900 MHz) to 83°C at near-full speed.
+
+**Verdict:** Repaste is worthwhile for anyone comfortable opening the unit. Turbo disable is still recommended for sustained workloads, but turbo performance when enabled is dramatically better after repaste.
+
 ## Why Not Just Fix the Fans?
 
-We tested this. **The cooler physically cannot dissipate turbo boost heat, regardless of fan speed.**
+We tested this. **The cooler physically cannot dissipate turbo boost heat, regardless of fan speed.** However, [repasting with Arctic MX-6](#after-repaste-arctic-mx-6) dramatically improved thermal transfer — the P-core still hits 100°C under sustained turbo but holds 3.9 GHz instead of throttling to 2.2 GHz. The factory paste had only ~40% die coverage.
 
 ### IT8613E PWM control exists (after driver install)
 
@@ -257,7 +273,7 @@ It's a firmware design choice. UGOS has its own fan daemon that reads CPU temp d
 
 **Will a BIOS update fix this?**
 
-A BIOS update could fix the ACPI thermal zone binding (board temp → CPU temp), but the underlying issue is the cooler design. Even at max fan speed, the heatsink can't dissipate turbo heat. A BIOS fix would let the fans ramp harder under load, but turbo would still thermal throttle under sustained workloads.
+A BIOS update could fix the ACPI thermal zone binding (board temp → CPU temp), but the underlying issue is the cooler design. Even at max fan speed, the heatsink can't dissipate turbo heat. A BIOS fix would let the fans ramp harder under load, but turbo would still thermal throttle under sustained workloads. Repasting helps significantly (see [test results](#after-repaste-arctic-mx-6)) but doesn't fully solve sustained turbo loads.
 
 **Can I get variable fan speed?**
 
