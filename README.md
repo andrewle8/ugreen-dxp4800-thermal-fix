@@ -8,9 +8,7 @@ The DXP4800+ throttles under sustained load because factory thermal paste covers
 
 ### 1. Repaste with spread technique
 
-The 8505 is bare die — no IHS. Dot/pea methods leave gaps. **Spread a thin even layer across the entire die surface.** Spread was 21°C cooler than dots with the same paste (Arctic MX-6).
-
-[Teardown video](https://youtu.be/nX61c-l4I_s)
+The 8505 is bare die no IHS. Dot/pea methods leave gaps. **Spread a thin even layer across the entire die surface.** Spread was 21°C cooler than dots with the same paste (Arctic MX-6).
 
 ### 2. BIOS SmartFan tuning
 
@@ -34,16 +32,6 @@ Enter BIOS: **Ctrl+F12** at boot → **Advanced → Hardware Monitor**.
 | Fan Start Temperature | 25 | **35** |
 | Fan Full Speed Temperature | 80 | **65** |
 
-### 3. Disable turbo (optional fallback)
-
-Only if Steps 1+2 aren't enough:
-
-```bash
-echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
-```
-
-Add to `/boot/config/go` to persist.
-
 ## Results
 
 | Configuration | P-core | E-cores | Throttle? |
@@ -56,11 +44,7 @@ Add to `/boot/config/go` to persist.
 
 ## Notes
 
-- UGOS isn't affected — it has its own fan daemon (`hwmonitor`) that bypasses the broken ACPI binding.
+- UGOS isn't affected. It has its own fan daemon (`hwmonitor`) that bypasses the broken ACPI binding.
 - The IT8613E Super IO chip exists at ISA `0x0a30`. The [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin exposes fan RPM monitoring if you want it.
 - ACPI fan cooling devices are bound to board temp (~28°C always) and don't control the physical fans. The BIOS SmartFan reads CPU temp directly.
 - Tested on DXP4800+ with Unraid 7.2.4.
-
-## License
-
-MIT
