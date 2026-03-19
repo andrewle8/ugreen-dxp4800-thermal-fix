@@ -2,49 +2,64 @@
 
 The DXP4800+ throttles under sustained load because factory thermal paste covers only ~40% of the bare die, and BIOS fan curves are too conservative.
 
-**Fix:** Repaste (spread technique) + BIOS SmartFan tuning. Full turbo, no throttling.
+**Fix:** Repaste (spread technique) + aggressive BIOS SmartFan tuning. Full turbo, no throttling, 77-79°C sustained.
 
 ## The Fix
 
 ### 1. Repaste with spread technique
 
-The 8505 is bare die no IHS. Dot/pea methods leave gaps. **Spread a thin even layer across the entire die surface.** Spread was 21°C cooler than dots with the same paste (Arctic MX-6).
+The 8505 is a bare die (no IHS). Dot/pea methods leave gaps. **Spread a thin even layer across the entire die surface.** Spread was 21°C cooler than pea method with the same paste (Arctic MX-6).
 
 ### 2. BIOS SmartFan tuning
 
 Enter BIOS: **Ctrl+F12** at boot → **Advanced → Hardware Monitor**.
 
+The key insight: BIOS SmartFan reads CPU temp directly, not the broken ACPI board temp sensor (~28°C always). Setting aggressive curves here is the correct fan control mechanism.
+
 **CPU SmartFan:**
 
-| Setting | Default | Set to |
-|---------|---------|--------|
-| Fan PWM Slope | 20 | **15** |
-| Fan Start PWM | 51 | **100** |
-| Fan Start Temperature | 45 | **40** |
-| Fan Full Speed Temperature | 85 | **75** |
+| Setting | Default | Conservative | Aggressive |
+|---------|---------|-------------|------------|
+| Fan PWM Slope | 20 | 15 | **15** |
+| Fan Start PWM | 51 | 100 | **100** |
+| Fan Start Temperature | 45 | 40 | **40** |
+| Fan Full Speed Temperature | 85 | 75 | **50** |
 
 **SYS SmartFan1:**
 
-| Setting | Default | Set to |
-|---------|---------|--------|
-| Fan PWM Slope | 35 | **10** |
-| Fan Start PWM | 51 | **80** |
-| Fan Start Temperature | 25 | **35** |
-| Fan Full Speed Temperature | 80 | **65** |
+| Setting | Default | Conservative | Aggressive |
+|---------|---------|-------------|------------|
+| Fan PWM Slope | 35 | 10 | **10** |
+| Fan Start PWM | 51 | 80 | **80** |
+| Fan Start Temperature | 25 | 35 | **30** |
+| Fan Full Speed Temperature | 80 | 65 | **40** |
+
+"Conservative" keeps fans quiet but allows spikes to 90-96°C during burst loads. "Aggressive" keeps sustained load under 80°C but fans run at full speed more often. With a Noctua NF-A14 PWM replacement fan, the aggressive profile is near-silent.
 
 ## Results
 
 | Configuration | P-core | E-cores | Throttle? |
 |---------------|--------|---------|-----------|
 | Factory paste, stock BIOS | 100°C / 2.2 GHz | 100°C / 900 MHz | Yes |
-| Factory paste, max fans | 100°C / 2.2 GHz | 100°C / 900 MHz | Yes — paste is the bottleneck |
-| Repaste (dots) | 100°C / 3.9 GHz | 83°C / 2.8 GHz | P-core at limit |
-| Repaste (spread) | 79°C / 3.8 GHz | 71°C / 2.8 GHz | **No** |
-| **Repaste (spread) + BIOS tuning** | **85°C / 3.65 GHz** | **77°C / 2.8 GHz** | **No** |
+| Factory paste, max fans | 100°C / 2.2 GHz | 100°C / 900 MHz | Yes -- paste is the bottleneck |
+| Repaste (pea) | 100°C / 3.9 GHz | 83°C / 2.8 GHz | P-core at limit |
+| Repaste (spread) + conservative curves | 85°C / 3.65 GHz | 77°C / 2.8 GHz | No |
+| **Repaste (spread) + aggressive curves** | **77-79°C / 3.8 GHz** | **63-70°C / 2.8 GHz** | **No** |
+
+Idle temps: ~45-50°C with aggressive curves, ~50-55°C with conservative.
+
+## Why It Throttles
+
+1. **Factory paste** only contacts ~40% of the die. The paste isn't dried out -- it's just poorly applied (too little, uneven).
+2. **ACPI firmware defect** -- fan cooling devices are bound to board temp (~28°C), not CPU temp. Kernel fan control never kicks in.
+3. **Conservative stock BIOS curves** -- even the BIOS SmartFan defaults don't ramp fans fast enough for burst loads.
+
+The heatsink base is flat. Poor thermal contact is entirely a paste application issue.
 
 ## Notes
 
 - UGOS isn't affected. It has its own fan daemon (`hwmonitor`) that bypasses the broken ACPI binding.
 - The IT8613E Super IO chip exists at ISA `0x0a30`. The [ich777/unraid-it87-driver](https://github.com/ich777/unraid-it87-driver) plugin exposes fan RPM monitoring if you want it.
-- ACPI fan cooling devices are bound to board temp (~28°C always) and don't control the physical fans. The BIOS SmartFan reads CPU temp directly.
-- Tested on DXP4800+ with Unraid 7.2.4.
+- ACPI fan cooling devices (`cooling_device6-10`) are virtual and toggling them has no effect on physical fans. Don't waste time with ACPI fan scripts.
+- The Unraid Dynamix Cache Dirs plugin runs `find` scans every ~10 min that spike one P-core to 100% for 30-60s. This is the primary heat source on an otherwise idle NAS.
+- Tested on DXP4800+ (Intel Pentium Gold 8505) with Unraid 7.2.4.
