@@ -18,23 +18,29 @@ The key insight: BIOS SmartFan reads CPU temp directly, not the broken ACPI boar
 
 **CPU SmartFan:**
 
-| Setting | Default | Conservative | Aggressive |
-|---------|---------|-------------|------------|
-| Fan PWM Slope | 20 | 15 | **15** |
-| Fan Start PWM | 51 | 100 | **100** |
-| Fan Start Temperature | 45 | 40 | **40** |
-| Fan Full Speed Temperature | 85 | 75 | **50** |
+| Setting | Default | Recommended (Noctua NF-A14) |
+|---------|---------|---------------------------|
+| Fan PWM Slope | 20 | **4** |
+| Fan Start PWM | 51 | **80** |
+| Fan Off Temperature Limit | 0 | **0** |
+| Fan Start Temperature | 45 | **40** |
+| Fan Full Speed Temperature | 85 | **80** |
+| Extra Temperature Setting | 70 | **60** |
+| Extra Slope Setting | 80 | **12** |
 
 **SYS SmartFan1:**
 
-| Setting | Default | Conservative | Aggressive |
-|---------|---------|-------------|------------|
-| Fan PWM Slope | 35 | 10 | **10** |
-| Fan Start PWM | 51 | 80 | **80** |
-| Fan Start Temperature | 25 | 35 | **30** |
-| Fan Full Speed Temperature | 80 | 65 | **40** |
+| Setting | Default | Recommended (Noctua NF-A14) |
+|---------|---------|---------------------------|
+| Fan PWM Slope | 35 | **4** |
+| Fan Start PWM | 51 | **60** |
+| Fan Off Temperature Limit | 0 | **0** |
+| Fan Start Temperature | 25 | **30** |
+| Fan Full Speed Temperature | 80 | **65** |
+| Extra Temperature Setting | 70 | **50** |
+| Extra Slope Setting | 80 | **8** |
 
-"Conservative" keeps fans quiet but allows spikes to 90-96°C during burst loads. "Aggressive" keeps sustained load under 80°C but fans run at full speed more often. With a Noctua NF-A14 PWM replacement fan, the aggressive profile is near-silent.
+The Extra Temperature and Extra Slope settings create a two-stage fan curve: gentle ramp below the Extra Temp (primary slope), steep ramp above it (extra slope). This eliminates fan hunting/oscillation. With the stock fan or without a Noctua, use higher Start PWM values (100+) and a slope of 10-15.
 
 ## Results
 
