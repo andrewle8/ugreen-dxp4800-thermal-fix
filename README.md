@@ -20,8 +20,8 @@ The key insight: BIOS SmartFan reads CPU temp directly, not the broken ACPI boar
 
 | Setting | Default | Recommended (Noctua NF-A14) |
 |---------|---------|---------------------------|
-| Fan PWM Slope | 20 | **4** |
-| Fan Start PWM | 51 | **80** |
+| Fan PWM Slope | 20 | **8** |
+| Fan Start PWM | 51 | **140** |
 | Fan Off Temperature Limit | 0 | **0** |
 | Fan Start Temperature | 45 | **40** |
 | Fan Full Speed Temperature | 85 | **80** |
@@ -51,9 +51,9 @@ The Extra Temperature and Extra Slope settings create a two-stage fan curve: gen
 | Repaste (pea) | 100°C / 3.9 GHz | 83°C / 2.8 GHz | P-core at limit |
 | Repaste (spread) + conservative curves | 85°C / 3.65 GHz | 77°C / 2.8 GHz | No |
 | Repaste (spread) + aggressive curves (stock fan) | 77-79°C / 3.8 GHz | 63-70°C / 2.8 GHz | No |
-| **Repaste (spread) + Noctua NF-A14 + two-stage curves** | **88°C / 3.7 GHz** | **82°C / 2.8 GHz** | **No** |
+| **Repaste (spread) + Noctua NF-A14 + two-stage curves** | **100°C / 3.7 GHz** | **82-93°C / 2.8 GHz** | **No -- holds full turbo at thermal limit** |
 
-Idle temps: ~60-64°C with Noctua two-stage curves (turbo on), ~45-50°C with stock fan aggressive curves. The Noctua trades ~3°C under load for significantly lower noise and no fan hunting.
+P-core hits 100°C during sustained single-core bursts (Cache Dirs scans) but holds 3.7 GHz via Intel thermal management -- no hard throttling. Idle: ~60-70°C. The Noctua is significantly quieter than the stock fan but can't dissipate 55W turbo burst heat as fast. The CPU manages itself at 100°C without performance loss.
 
 ## Why It Throttles
 
