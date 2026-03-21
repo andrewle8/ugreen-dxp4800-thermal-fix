@@ -50,9 +50,10 @@ The Extra Temperature and Extra Slope settings create a two-stage fan curve: gen
 | Factory paste, max fans | 100°C / 2.2 GHz | 100°C / 900 MHz | Yes -- paste is the bottleneck |
 | Repaste (pea) | 100°C / 3.9 GHz | 83°C / 2.8 GHz | P-core at limit |
 | Repaste (spread) + conservative curves | 85°C / 3.65 GHz | 77°C / 2.8 GHz | No |
-| **Repaste (spread) + aggressive curves** | **77-79°C / 3.8 GHz** | **63-70°C / 2.8 GHz** | **No** |
+| Repaste (spread) + aggressive curves (stock fan) | 77-79°C / 3.8 GHz | 63-70°C / 2.8 GHz | No |
+| **Repaste (spread) + Noctua NF-A14 + two-stage curves** | **88°C / 3.7 GHz** | **82°C / 2.8 GHz** | **No** |
 
-Idle temps: ~45-50°C with aggressive curves, ~50-55°C with conservative.
+Idle temps: ~60-64°C with Noctua two-stage curves (turbo on), ~45-50°C with stock fan aggressive curves. The Noctua trades ~3°C under load for significantly lower noise and no fan hunting.
 
 ## Why It Throttles
 
